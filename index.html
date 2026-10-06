@@ -1,1 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthMate AI Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen flex flex-col">
 
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-800/80 backdrop-blur border-b border-slate-700 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-teal-500/20 text-teal-400 rounded-lg">
+                <i data-lucide="heart-pulse" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-none">HealthMate AI</h1>
+                <span class="text-xs text-slate-400">Voice-First Health Assistant</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <input type="password" id="apiKey" placeholder="Enter OpenAI API Key" 
+                   class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-teal-500 text-slate-200 w-56">
+            <span id="statusBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
+                Offline
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Content Layout -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Sidebar: Wellness Trackers & Reminders -->
+        <div class="lg:col-span-4 space-y-6">
+            
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center">
+                    <p class="text-xs text-slate-400 mb-1">Water Intake</p>
+                    <p id="waterCountDisplay" class="text-2xl font-bold text-teal-400">1.0 / 2.0 L</p>
+                </div>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 text-center">
+                    <p class="text-xs text-slate-400 mb-1">Meds Pending</p>
+                    <p id="medsPendingDisplay" class="text-2xl font-bold text-amber-400">2 Remaining</p>
+                </div>
+            </div>
+
+            <!-- Hydration Tracker -->
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-semibold text-slate-200 flex items-center gap-2">
+                        <i data-lucide="droplet" class="w-4 h-4 text-teal-400"></i> Hydration Tracker
+                    </h3>
+                    <span id="glassCountText" class="text-xs text-slate-400">4 / 8 Glasses</span>
+                </div>
+                <div class="flex items-center justify-between bg-slate-900 p-3 rounded-lg">
+                    <button onclick="updateWater(-1)" class="p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                        <i data-lucide="minus" class="w-4 h-4"></i>
+                    </button>
+                    <div class="flex space-x-1" id="waterIcons">
+                        <!-- Glass icons generated via JS -->
+                    </div>
+                    <button onclick="updateWater(1)" class="p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Medication Schedule -->
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700">
+                <h3 class="font-semibold text-slate-200 mb-4 flex items-center gap-2">
+                    <i data-lucide="pill" class="w-4 h-4 text-emerald-400"></i> Medication Schedule
+                </h3>
+                <div class="space-y-3" id="medList">
+                    <!-- Dynamic Medication List -->
+                </div>
+            </div>
+
+            <!-- Disclaimer Box -->
+            <div class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300/90 flex gap-3">
+                <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0 text-amber-400"></i>
+                <p>I’m an AI assistant, not a medical professional. My tips are for general guidance — please consult your doctor for personal health advice.</p>
+            </div>
+        </div>
+
+        <!-- Right Main View: Voice Interface & Live Chat -->
+        <div class="lg:col-span-8 flex flex-col bg-slate-800 rounded-xl border border-slate-700 overflow-hidden h-[700px]">
+            
+            <!-- Conversation Area -->
+            <div id="chatBox" class="flex-1 p-6 overflow-y-auto space-y-4">
+                <!-- Messages will be populated dynamically -->
+            </div>
+
+            <!-- Controls Footer -->
+            <div class="p-4 bg-slate-900 border-t border-slate-700 space-y-3">
+                
+                <!-- Voice Status Visualizer -->
+                <div id="voiceStatus" class="hidden text-center text-xs text-teal-400 font-medium animate-pulse">
+                    🎤 Listening... Speak now
+                </div>
+
+                <!-- Voice / Text Control Bar -->
+                <div class="flex items-center gap-2">
+                    <button id="micBtn" onclick="toggleVoiceInput()" 
+                            class="p-3 bg-teal-500 hover:bg-teal-600 text-slate-950 rounded-xl font-medium transition flex items-center justify-center shrink-0">
+                        <i data-lucide="mic" class="w-5 h-5"></i>
+                    </button>
+                    
+                    <input type="text" id="userInput" placeholder="Ask HealthMate or use voice..." 
+                           onkeypress="if(event.key==='Enter') sendTextMessage()"
+                           class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500 text-slate-100">
+                    
+                    <button onclick="sendTextMessage()" 
+                            class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition">
+                        <i data-lucide="send" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // System Prompt Initialization
+        const SYSTEM_PROMPT = `You are HealthMate — a friendly, reliable, voice-first Health Management AI Assistant designed to work like Alexa: speak naturally, keep responses concise, warm, and easy to hear, and always ask if the user needs more help.
+
+### Voice & Tone Rules
+- Speak naturally, warmly, and briefly — keep answers under 3–4 sentences unless asked for details
+- Use conversational phrases like "Sure thing," "Got it," "Here you go"
+- Confirm every action clearly
+- End with: "Is there anything else I can help you with?"
+
+### Critical Boundaries
+- Always state: "I’m an AI assistant, not a medical professional. My tips are for general guidance — please consult your doctor for personal health advice."`;
+
+        // State Management
+        let conversationHistory = [{ role: "system", content: SYSTEM_PROMPT }];
+        let waterGlasses = 4;
+        let medications = [
+            { id: 1, name: "Multivitamins", time: "08:00 AM", taken: true },
+            { id: 2, name: "Amoxicillin", time: "01:00 PM", taken: false },
+            { id: 3, name: "Omega-3", time: "07:00 PM", taken: false }
+        ];
+
+        // Speech APIs
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = SpeechRecognition ? new SpeechRecognition() : null;
+        let isListening = false;
+
+        // Initialize UI
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderWater();
+            renderMeds();
+            addMessage("assistant", "Hello! I am HealthMate. How can I help you manage your health today?");
+            
+            if (recognition) {
+                recognition.continuous = false;
+                recognition.lang = 'en-US';
+                
+                recognition.onresult = (e) => {
+                    const transcript = e.results[0][0].transcript;
+                    document.getElementById('userInput').value = transcript;
+                    stopListening();
+                    sendTextMessage();
+                };
+
+                recognition.onerror = () => stopListening();
+                recognition.onend = () => stopListening();
+            }
+        });
+
+        // Hydration Logic
+        function updateWater(delta) {
+            waterGlasses = Math.max(0, Math.min(8, waterGlasses + delta));
+            renderWater();
+        }
+
+        function renderWater() {
+            document.getElementById('glassCountText').innerText = `${waterGlasses} / 8 Glasses`;
+            document.getElementById('waterCountDisplay').innerText = `${(waterGlasses * 0.25).toFixed(1)} / 2.0 L`;
+            const container = document.getElementById('waterIcons');
+            container.innerHTML = '';
+            for (let i = 0; i < 8; i++) {
+                const icon = document.createElement('i');
+                icon.setAttribute('data-lucide', 'droplet');
+                icon.className = `w-4 h-4 ${i < waterGlasses ? 'text-teal-400 fill-teal-400' : 'text-slate-700'}`;
+                container.appendChild(icon);
+            }
+            lucide.createIcons();
+        }
+
+        // Medication Logic
+        function toggleMed(id) {
+            medications = medications.map(m => m.id === id ? { ...m, taken: !m.taken } : m);
+            renderMeds();
+        }
+
+        function renderMeds() {
+            const list = document.getElementById('medList');
+            const pendingCount = medications.filter(m => !m.taken).length;
+            document.getElementById('medsPendingDisplay').innerText = `${pendingCount} Remaining`;
+
+            list.innerHTML = medications.map(m => `
+                <div onclick="toggleMed(${m.id})" class="flex items-center justify-between p-3 rounded-lg bg-slate-900/60 border border-slate-700/50 cursor-pointer hover:border-slate-600 transition">
+                    <div class="flex items-center space-x-3">
+                        <input type="checkbox" ${m.taken ? 'checked' : ''} class="rounded border-slate-700 text-teal-500 focus:ring-0 bg-slate-800 pointer-events-none">
+                        <span class="text-sm ${m.taken ? 'line-through text-slate-500' : 'text-slate-200'}">${m.name}</span>
+                    </div>
+                    <span class="text-xs text-slate-400">${m.time}</span>
+                </div>
+            `).join('');
+        }
+
+        // Voice Controls
+        function toggleVoiceInput() {
+            if (!recognition) {
+                alert("Speech recognition is not supported in this browser. Please use Chrome or Edge.");
+                return;
+            }
+            if (isListening) {
+                stopListening();
+            } else {
+                startListening();
+            }
+        }
+
+        function startListening() {
+            isListening = true;
+            document.getElementById('micBtn').classList.replace('bg-teal-500', 'bg-rose-500');
+            document.getElementById('voiceStatus').classList.remove('hidden');
+            recognition.start();
+        }
+
+        function stopListening() {
+            isListening = false;
+            document.getElementById('micBtn').classList.replace('bg-rose-500', 'bg-teal-500');
+            document.getElementById('voiceStatus').classList.add('hidden');
+        }
+
+        // TTS Audio Output
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // Chat Interaction
+        async function sendTextMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            const apiKey = document.getElementById('apiKey').value.trim();
+
+            if (!text) return;
+            if (!apiKey) {
+                alert("Please enter your OpenAI API key in the top header.");
+                return;
+            }
+
+            addMessage("user", text);
+            input.value = "";
+            conversationHistory.push({ role: "user", content: text });
+
+            // UI Status
+            document.getElementById('statusBadge').innerText = "Thinking...";
+            document.getElementById('statusBadge').className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400";
+
+            try {
+                const response = await fetch("https://api.openai.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-3.5-turbo",
+                        messages: conversationHistory,
+                        temperature: 0.7
+                    })
+                });
+
+                const data = await response.json();
+                if (data.choices && data.choices[0]) {
+                    const aiReply = data.choices[0].message.content;
+                    conversationHistory.push({ role: "assistant", content: aiReply });
+                    addMessage("assistant", aiReply);
+                    speak(aiReply);
+                } else {
+                    addMessage("assistant", "Error: Unable to fetch response from API.");
+                }
+            } catch (err) {
+                addMessage("assistant", "Error connecting to OpenAI services.");
+            } finally {
+                document.getElementById('statusBadge').innerText = "Online";
+                document.getElementById('statusBadge').className = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400";
+            }
+        }
+
+        function addMessage(role, text) {
+            const container = document.getElementById('chatBox');
+            const isUser = role === "user";
+            
+            const msgHtml = `
+                <div class="flex gap-3 ${isUser ? 'flex-row-reverse' : ''}">
+                    <div class="w-8 h-8 rounded-lg ${isUser ? 'bg-teal-500 text-slate-950' : 'bg-slate-700 text-teal-400'} flex items-center justify-center shrink-0 font-bold text-xs">
+                        ${isUser ? 'YOU' : 'AI'}
+                    </div>
+                    <div class="max-w-[80%] rounded-2xl px-4 py-3 text-sm ${isUser ? 'bg-teal-600 text-white rounded-tr-none' : 'bg-slate-900 border border-slate-700 text-slate-200 rounded-tl-none'}">
+                        ${text}
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', msgHtml);
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
+</body>
+</html>
